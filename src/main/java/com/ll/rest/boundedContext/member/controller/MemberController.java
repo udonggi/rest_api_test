@@ -32,8 +32,19 @@ public class MemberController {
     }
 
     @PostMapping("/login")
-    public Member login(@Valid @RequestBody LoginRequest loginRequest, HttpServletResponse resp) {
-        resp.addHeader("Authentication", "JWT 토큰");
-        return memberService.findByUsername(loginRequest.getUsername()).orElse(null);
+    public String login(@Valid @RequestBody LoginRequest loginRequest, HttpServletResponse resp) {
+        String accessToken = memberService.genAccessToken(loginRequest.getUsername(), loginRequest.getPassword());
+
+        resp.addHeader("Authentication", accessToken);
+
+        return """
+                {
+                  "resultCode": "S-1",
+                  "msg": "엑세스 토큰이 생성되었습니다.",
+                  "data": {
+                    "accessToken": "%s"
+                  }
+                }
+                """.formatted(accessToken).stripIndent();
     }
 }
