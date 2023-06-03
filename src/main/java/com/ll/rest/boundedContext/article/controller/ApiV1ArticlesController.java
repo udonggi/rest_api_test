@@ -4,7 +4,6 @@ import com.ll.rest.base.rsData.RsData;
 import com.ll.rest.boundedContext.article.entity.Article;
 import com.ll.rest.boundedContext.article.service.ArticleService;
 import com.ll.rest.boundedContext.member.entity.Member;
-import com.ll.rest.boundedContext.member.repository.MemberRepository;
 import com.ll.rest.boundedContext.member.service.MemberService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -104,7 +103,7 @@ public class ApiV1ArticlesController {
         private final Article article;
     }
 
-    @PostMapping(value = "")
+    @PostMapping(value = "", consumes = APPLICATION_JSON_VALUE)
     @Operation(summary = "등록", security = @SecurityRequirement(name = "bearerAuth"))
     public RsData<WriteResponse> write(
             @AuthenticationPrincipal User user,
@@ -119,6 +118,50 @@ public class ApiV1ArticlesController {
                 writeRs.getResultCode(),
                 writeRs.getMsg(),
                 new WriteResponse(writeRs.getData())
+        );
+    }
+
+    @Data
+    public static class ModifyRequest {
+        @NotBlank
+        private String subject;
+        @NotBlank
+        private String content;
+    }
+
+    @AllArgsConstructor
+    @Getter
+    public static class ModifyResponse {
+        private final Article article;
+    }
+
+    @PatchMapping(value = "/{id}", consumes = APPLICATION_JSON_VALUE)
+    @Operation(summary = "수정", security = @SecurityRequirement(name = "bearerAuth"))
+    public RsData<ModifyResponse> modify(
+            @AuthenticationPrincipal User user,
+            @Valid @RequestBody ModifyRequest modifyRequest,
+            @PathVariable Long id
+    ) {
+        Member member = memberService.findByUsername(user.getUsername()).orElseThrow();
+
+        Optional<Article> opArticle = articleService.findById(id);
+
+        if (opArticle.isEmpty()) return RsData.of(
+                "F-1",
+                "%d번 게시물은 존재하지 않습니다.".formatted(id),
+                null
+        );
+
+        RsData canModifyRs = articleService.canModify(member, opArticle.get());
+
+        if (canModifyRs.isFail()) return canModifyRs;
+
+        RsData<Article> modifyRs = articleService.modify(opArticle.get(), modifyRequest.getSubject(), modifyRequest.getContent());
+
+        return RsData.of(
+                modifyRs.getResultCode(),
+                modifyRs.getMsg(),
+                new ModifyResponse(modifyRs.getData())
         );
     }
 }
